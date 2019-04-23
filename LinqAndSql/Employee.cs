@@ -2,11 +2,12 @@
 {
     public class Employee
     {
-        public int EmployeeID { get; set; }
-        public string Name { get; set; }
-        public string Department { get; set; }
+        public int ID { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public Gender Gender { get; set; }
         public int Salary { get; set; }
+        public Department Department { get; set; }
 
-        public int ManagerId { get; set; }
     }
 }
