@@ -9,10 +9,32 @@ namespace LinqAndSql
         private static Department myCompany;
         public static void Main(string[] args)
         {
+            ArrayList list = new ArrayList();
+            list.Add(1);
+            list.Add(2);
+            list.Add(3);
+            list.Add("test");
+            var intList = list.Cast<int>(); //exception is thrown if an item not convertible ...deferred execution
+            var onlyIntList = list.OfType<int>(); // return only int and ignores other types
+
             int[] numbers = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
             var evenNumbers = from number in numbers
                              where (number % 2) == 0
                              select number;
+            var numberGreaterThan100First = numbers.Where(num => num > 100).First(); // first element otherwise exception
+            var numberGreaterThan100FirstDefault = numbers.Where(num => num > 100).FirstOrDefault(); // first element otherwise default value of int
+
+            var numberGreaterThan100Last = numbers.Where(num => num > 100).Last(); // last element otherwise exception
+            var numberGreaterThan100LasttDefault = numbers.Where(num => num > 100).LastOrDefault(); // last element otherwise default value of int
+
+            var numerElementAt = numbers.ElementAt(5); //element at 5 or exception
+            var numerElementAtDefault = numbers.ElementAtOrDefault(5); //element at 5 or default value of int
+
+            var singleNumber = numbers.Single(); // only element of the sequence or exception
+            var singleNumberPredicate = numbers.Single(x=> x%2==0); // only element of the sequence staisfaying condition or exception
+            var singleNumberDefault = numbers.SingleOrDefault(); // only element of the sequence or if array is empty then default value if more than one element then exception
+            var defaultOrEmpty = numbers.DefaultIfEmpty();// original array if not empty otherwise array witrh one element with default value
+
             Func<int, bool> predicate = num=> num %2==1;
             var oddNumbers1 = numbers.Where(predicate);
             var oddNumbers2 = numbers.Where(num=>isOdd(num));
@@ -30,6 +52,10 @@ namespace LinqAndSql
             var shortestCountryName = countries.Min(country=> country.Length);
             var largestestCountryName = countries.Max(country=> country.Length);
             var commaSepratedCountryNames = countries.Aggregate((a,b)=> a + ','+b);
+
+            string[] names = {"Pranshu", "pranshu", "Pravesh", "Pravesh", "Priyanka" ,"Pranshu"};
+            var distinctNames = names.Distinct(); // distinct names
+            var distinctNamesCaseInsensitive = names.Distinct(StringComparer.OrdinalIgnoreCase); // disticnt ignore case
 
 
             var maleStudents = Student.GetAllStudents().Where(student => student.Gender == Gender.Male);
@@ -118,17 +144,102 @@ namespace LinqAndSql
                                                   Gender = eGroup.Key.Gender,
                                                   Employees = eGroup.OrderBy(emp=> emp.FirstName)
                                               };
-                                              
-
-            ArrayList list = new ArrayList();
-            list.Add(1);
-            list.Add(2);
-            list.Add(3);
-            list.Add("test");
 
 
-            var intList = list.Cast<int>(); //exception is thrown if an item not convertible ...deferred execution
-            var onlyIntList = list.OfType<int>(); // return only int and ignores other types
+            var studentGroupByBranch = Branch.GetAllBranches()
+                            .GroupJoin(
+                                Student.GetAllStudents(),
+                                bra => bra.ID,
+                                stu => stu.BranchID,
+                                (bra, stu) => new { Branch = bra, Students = stu });
+
+            var studentGroupByBranchSql= from bra in Branch.GetAllBranches()
+                                    join stu in Student.GetAllStudents()
+                                    on bra.ID equals stu.BranchID into sGroup
+                                    select new { Branch = bra, Students = sGroup };
+
+
+            var BranchInnerJoinStudent = Branch.GetAllBranches()
+                                        .Join(Student.GetAllStudents(),
+                                        bra => bra.ID,
+                                        stu => stu.BranchID,
+                                        (bra, stu) => new { Branch = bra.Name, Student = stu.Name });
+
+            var BranchInnerJoinStudentSql = from bra in Branch.GetAllBranches()
+                                            join stu in Student.GetAllStudents()
+                                            on bra.ID equals stu.BranchID
+                                            select new { Branch = bra.Name, Student = stu.Name };
+
+            var BranchLeftOutertJoinStudent = Branch.GetAllBranches()
+                                            .GroupJoin(Student.GetAllStudents(),
+                                                bra=> bra.ID,
+                                                stu=> stu.BranchID,
+                                                (bra, stus)=> new { Branch = bra, Students = stus })
+                                            .SelectMany(z=> z.Students.DefaultIfEmpty(),
+                                                (bra, stu)=> new {
+                                                    Branch = bra.Branch.Name,
+                                                    Student = stu == null ? "" : stu.Name
+                                                });
+
+            var BranchLeftOutertJoinStudentSql = from bra in Branch.GetAllBranches()
+                                              join stu in Student.GetAllStudents()
+                                              on bra.ID equals stu.BranchID into sGroup
+                                              from stu in sGroup.DefaultIfEmpty()
+                                              select new {
+                                                  Branch = bra.Name,
+                                                  Student = stu== null? "":stu.Name };
+
+            var BranchCrossJoinStudent = Branch.GetAllBranches()
+                                        .SelectMany(stu=> Student.GetAllStudents(),
+                                        (bra,stu)=> new
+                                        {
+                                            Branch = bra.Name,
+                                            Name = stu.Name
+                                        });
+
+            var BranchCrossJoinStudentJoin = Branch.GetAllBranches()
+                                        .Join(Student.GetAllStudents(),
+                                        bra => true,
+                                        stu => true,
+                                        (bra, stu) => new { Branch = bra.Name, Student = stu.Name });
+
+            var BranchCrossJoinStudentSql = from bra in Branch.GetAllBranches()
+                                            from stu in Student.GetAllStudents()
+                                            select new
+                                            {
+                                                Branch = bra.Name,
+                                                Name = stu.Name
+                                            };
+
+            var distinctStudents = Student.GetAllStudents().Distinct(new StudentEqualityComparer());
+            var distinctStudentIdNames = Student.GetAllStudents()
+                                           .Select(stu => new { ID = stu.ID, Name = stu.Name }).Distinct(); // anonymous types override equals and Gethashcode method so this works fine
+
+            var concatStudents = Student.GetAllStudents()
+                                .Select(stu => new { ID = stu.ID, Name = stu.Name })
+                                .Concat(Student.GetOtherStudents().Select(stu => new { ID = stu.ID, Name = stu.Name }));
+
+            var unionStudents = Student.GetAllStudents()
+                                .Select(stu => new { ID = stu.ID, Name = stu.Name })
+                                .Union(Student.GetOtherStudents().Select(stu => new { ID = stu.ID, Name = stu.Name }));
+
+            var intersectStudents = Student.GetAllStudents()
+                                .Select(stu => new { ID = stu.ID, Name = stu.Name })
+                                .Intersect(Student.GetOtherStudents().Select(stu => new { ID = stu.ID, Name = stu.Name }));
+
+            var evenNumbersViaRange = Enumerable.Range(0, 10).Select(num => num % 2 == 0);
+            var repeat = Enumerable.Repeat("Pranshu", 10);// repeat will contain 5 items of Pranshu
+            var empty = Enumerable.Empty<int>();// return new IEnumerable<int>()
+
+            string[] seq1 = { "PraNshu", "pranshu", "PRAVESH", "Pravesh", "PRIYANKA", "Pranshu" };
+            string[] seq2 = { "Pranshu", "pranshu", "Pravesh", "Pravesh", "Priyanka", "Pranshu" };
+
+            var areSequenceEquals = seq1.SequenceEqual(seq2, StringComparer.OrdinalIgnoreCase);// true as sequence are equal for object types override Gethashcode and equals
+
+            var all = numbers.All(num => num < 100);
+            var any = numbers.Any(num => num % 2 == 0);
+            var contains = numbers.Contains(10);
+
 
 
         }
